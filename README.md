@@ -21,18 +21,41 @@ two nodes with a looping edge:
 | "Tools" node (run tools) | the `for call in tool_calls:` block |
 | Looping edge (back to LLM) | the `for step in range(max_steps):` loop |
 | Shared **State** (`messages`) | the growing `messages` list |
-| `create_react_agent(model, tools)` | the entire hand-written agent file |
+| `create_agent(model, tools)` | the entire hand-written agent file |
 
 LangGraph didn't invent new concepts — it gave a hand-written loop a formal
-structure (nodes + edges + state) and runs it for you. The prebuilt
-`create_react_agent` collapses the whole loop into one function call. Tools are
-just plain Python functions; LangGraph reads their name, type hints, and docstring
-to build the tool schema automatically (the docstring is load-bearing — the LLM
-reads it to decide when to call).
+structure (nodes + edges + state) and runs it for you. The prebuilt agent factory
+collapses the whole loop into one function call. Tools are just plain Python
+functions; LangGraph reads their name, type hints, and docstring to build the tool
+schema automatically (the docstring is load-bearing — the LLM reads it to decide
+when to call).
 
-> Note on imports: `create_react_agent` from `langgraph.prebuilt` is the verified
-> current v1.0 API. Many tutorials still show deprecated v0.1 patterns
-> (`set_entry_point()` etc.). LangGraph reached stable v1.0 in October 2025.
+### Current API (and a lesson about "verified current")
+
+Use:
+
+```python
+from langchain.agents import create_agent
+```
+
+**Not** `from langgraph.prebuilt import create_react_agent` — that was moved and
+renamed in LangGraph v1.0 and now raises:
+
+```
+LangGraphDeprecatedSinceV10: create_react_agent has been moved to
+`langchain.agents`. Please update your import to
+`from langchain.agents import create_agent`. Deprecated in LangGraph V1.0 to be
+removed in V2.0.
+```
+
+Worth recording honestly: this project was built with `create_react_agent` from
+`langgraph.prebuilt` — which was asserted to be the "verified current v1.0" API and
+was actually *one version stale*. The deprecation warning printed by the actual run
+was the real source of truth, and following it (`langchain.agents.create_agent`) is
+correct. The lesson that runs through this whole series applies here too: **trust
+what the system actually tells you over what someone confidently asserts** — even a
+"verified current" claim can be wrong; the running code's own warning is ground
+truth.
 
 ## The experiment: framework vs. model
 
@@ -68,7 +91,7 @@ A three-way controlled comparison, holding one variable constant at a time:
 
 Real, but bounded, benefits over the hand-rolled loop:
 
-- The entire agent collapsed to `create_react_agent(model, tools=[...])` — no
+- The entire agent collapsed to `create_agent(model, tools=[...])` — no
   hand-written tool schemas, no `available_tools` dict, no manual loop/step-cap.
 - Built-in error recovery: a bad tool call was caught, formatted as a helpful
   message ("Please fix the error and try again"), and fed back to the model
@@ -87,14 +110,17 @@ python agent.py
 
 Swap models by changing the one `ChatOllama(model=...)` line.
 
-## Biggest takeaway
+## Biggest takeaways
 
-**Frameworks and models are independent axes of improvement.** A framework makes an
-agent *easier to build* and manages its complexity; only a more capable model makes
-it *smarter*. Conflating the two — switching frameworks hoping for better behavior,
-or blaming the model for a loop bug — is a common mistake. Holding each variable
-constant in turn ("change the loop, change nothing in behavior; change the model,
-fix everything") cleanly separates the two.
+- **Frameworks and models are independent axes of improvement.** A framework makes
+  an agent *easier to build* and manages its complexity; only a more capable model
+  makes it *smarter*. Conflating the two — switching frameworks hoping for better
+  behavior, or blaming the model for a loop bug — is a common mistake. Holding each
+  variable constant in turn ("change the loop, change nothing in behavior; change
+  the model, fix everything") cleanly separates the two.
+- **"Verified current" is not ground truth — the running code is.** The API used
+  here was asserted current and was already deprecated; the run's own warning caught
+  it. Always trust what the system actually reports.
 
 ## How this fits the series
 
